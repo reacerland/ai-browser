@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+import click
 
 from auto_browser.client import Client
 
@@ -59,11 +60,40 @@ def _ensure_session_dir(session: str, user_data_dir: str | None) -> tuple[str, s
     return str(sdir), None
 
 
-def cmd_open(args: argparse.Namespace) -> None:
-    session = args.session or "default"
-    url = args.url
-    headed = args.headed
-    user_data_dir = args.session is not None
+def _output(result: dict) -> None:
+    print(json.dumps({"status": "ok", "data": result}))
+    if "content" in result:
+        print(result["content"], file=sys.stderr)
+
+
+def _get_client(session: str) -> Client:
+    if not _is_daemon_running(session):
+        click.echo(json.dumps({
+            "status": "error",
+            "error": {"code": -32000, "message": "Daemon not running. Use 'ab open' first."},
+        }))
+        raise SystemExit(1)
+    info = _read_daemon_info(session)
+    return Client(info["socket"])
+
+
+@click.group()
+@click.option("--session", "-s", default="default", help="Session name.")
+@click.pass_context
+def cli(ctx: click.Context, session: str) -> None:
+    """Auto-browser CLI — browser automation for AI agents."""
+    ctx.ensure_object(dict)
+    ctx.obj["session"] = session
+
+
+@cli.command("open")
+@click.argument("url")
+@click.option("--headed", is_flag=True, help="Run browser in headed mode.")
+@click.pass_context
+def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
+    """Open a URL. Starts daemon if not running."""
+    session = ctx.obj["session"]
+    user_data_dir = ctx.obj["session"] != "default"
 
     session_dir, udd = _ensure_session_dir(session, user_data_dir)
     socket_path = f"/tmp/ab-{session}.sock"
@@ -74,14 +104,6 @@ def cmd_open(args: argparse.Namespace) -> None:
         result = client.call("goto", {"url": url})
         _output(result)
         return
-
-    daemon_info = {
-        "pid": os.getpid(),
-        "socket": socket_path,
-        "session": session,
-        "headed": headed,
-        "user_data_dir": udd,
-    }
 
     proc = subprocess.Popen(
         [sys.executable, "-m", "auto_browser", "_daemon",
@@ -95,21 +117,30 @@ def cmd_open(args: argparse.Namespace) -> None:
         start_new_session=True,
     )
 
-    daemon_info["pid"] = proc.pid
+    daemon_info = {
+        "pid": proc.pid,
+        "socket": socket_path,
+        "session": session,
+        "headed": headed,
+        "user_data_dir": udd,
+    }
     with open(_daemon_info_path(session), "w") as f:
         json.dump(daemon_info, f)
 
     if not _wait_for_socket(socket_path):
-        print(json.dumps({"status": "error", "error": {"message": "Daemon failed to start"}}))
-        sys.exit(1)
+        click.echo(json.dumps({"status": "error", "error": {"message": "Daemon failed to start"}}))
+        raise SystemExit(1)
 
     client = Client(socket_path)
     result = client.call("goto", {"url": url})
     _output(result)
 
 
-def cmd_close(args: argparse.Namespace) -> None:
-    session = args.session or "default"
+@cli.command()
+@click.pass_context
+def close(ctx: click.Context) -> None:
+    """Close the browser and stop the daemon."""
+    session = ctx.obj["session"]
     if not _is_daemon_running(session):
         _output({"status": "ok", "message": "Daemon not running"})
         return
@@ -119,111 +150,129 @@ def cmd_close(args: argparse.Namespace) -> None:
     _output(result)
 
 
-def cmd_action(args: argparse.Namespace) -> None:
-    session = args.session or "default"
-    if not _is_daemon_running(session):
-        print(json.dumps({"status": "error", "error": {"code": -32000, "message": "Daemon not running. Use 'ab open' first."}}))
-        sys.exit(1)
-    info = _read_daemon_info(session)
-    client = Client(info["socket"])
-    params = {}
-    if hasattr(args, "ref") and args.ref:
-        params["ref"] = args.ref
-    if hasattr(args, "text") and args.text:
-        params["text"] = args.text
-    if hasattr(args, "value") and args.value:
-        params["value"] = args.value
-    if hasattr(args, "compact") and args.compact:
+@cli.command()
+@click.option("--compact", is_flag=True, help="Compact output mode.")
+@click.option("--selector", help="CSS selector to filter elements.")
+@click.pass_context
+def snapshot(ctx: click.Context, compact: bool, selector: str | None) -> None:
+    """Get accessibility tree snapshot of the current page."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    params: dict = {}
+    if compact:
         params["compact"] = True
-    if hasattr(args, "selector") and args.selector:
-        params["selector"] = args.selector
-    if hasattr(args, "direction") and args.direction:
-        params["direction"] = args.direction
-    if hasattr(args, "amount") and args.amount:
-        params["amount"] = args.amount
-    if hasattr(args, "expression") and args.expression:
-        params["expression"] = args.expression
-    if hasattr(args, "output") and args.output:
-        params["path"] = args.output
-    if hasattr(args, "double") and args.double:
-        params["double"] = True
-    if hasattr(args, "clear") and args.clear:
-        params["clear"] = True
-
-    result = client.call(args.action, params)
+    if selector:
+        params["selector"] = selector
+    result = client.call("snapshot", params)
     _output(result)
 
 
-def _output(result: dict) -> None:
-    print(json.dumps({"status": "ok", "data": result}))
-    if "content" in result:
-        print(result["content"], file=sys.stderr)
+@cli.command("click")
+@click.argument("ref")
+@click.option("--double", is_flag=True, help="Double-click.")
+@click.pass_context
+def click_cmd(ctx: click.Context, ref: str, double: bool) -> None:
+    """Click an element by its ref identifier."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    params: dict = {"ref": ref}
+    if double:
+        params["double"] = True
+    result = client.call("click", params)
+    _output(result)
+
+
+@cli.command("type")
+@click.argument("ref")
+@click.argument("text")
+@click.option("--clear", is_flag=True, help="Clear field before typing.")
+@click.pass_context
+def type_cmd(ctx: click.Context, ref: str, text: str, clear: bool) -> None:
+    """Type text into an element."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    params: dict = {"ref": ref, "text": text}
+    if clear:
+        params["clear"] = True
+    result = client.call("type", params)
+    _output(result)
+
+
+@cli.command()
+@click.argument("ref")
+@click.argument("value")
+@click.pass_context
+def fill(ctx: click.Context, ref: str, value: str) -> None:
+    """Fill a form field with a value (replaces existing content)."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    result = client.call("fill", {"ref": ref, "value": value})
+    _output(result)
+
+
+@cli.command()
+@click.argument("direction", type=click.Choice(["up", "down"]))
+@click.option("--amount", type=int, default=300, help="Scroll distance in pixels.")
+@click.pass_context
+def scroll(ctx: click.Context, direction: str, amount: int) -> None:
+    """Scroll the page up or down."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    result = client.call("scroll", {"direction": direction, "amount": amount})
+    _output(result)
+
+
+@cli.command()
+@click.option("--output", "-o", help="Save screenshot to file path.")
+@click.pass_context
+def screenshot(ctx: click.Context, output: str | None) -> None:
+    """Take a screenshot of the current page."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    params: dict = {}
+    if output:
+        params["path"] = output
+    result = client.call("screenshot", params)
+    _output(result)
+
+
+@cli.command()
+@click.argument("expression")
+@click.pass_context
+def eval(ctx: click.Context, expression: str) -> None:
+    """Evaluate JavaScript expression in the page."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    result = client.call("eval", {"expression": expression})
+    _output(result)
+
+
+@cli.command()
+@click.pass_context
+def ping(ctx: click.Context) -> None:
+    """Check if the daemon is alive."""
+    session = ctx.obj["session"]
+    client = _get_client(session)
+    result = client.call("ping")
+    _output(result)
+
+
+@cli.command(hidden=True)
+@click.option("--socket", required=True)
+@click.option("--headed", is_flag=True)
+@click.option("--user-data-dir")
+@click.option("--session", default="default")
+@click.option("--session-dir")
+def _daemon(socket: str, headed: bool, user_data_dir: str | None, session: str, session_dir: str | None) -> None:
+    """Internal: run the daemon process."""
+    from auto_browser.daemon import run_daemon
+    run_daemon(
+        socket_path=socket,
+        headed=headed,
+        user_data_dir=user_data_dir,
+        session_name=session,
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="ab", description="Auto-browser CLI")
-    parser.add_argument("--session", "-s", help="Session name")
-
-    sub = parser.add_subparsers(dest="command")
-
-    p_open = sub.add_parser("open")
-    p_open.add_argument("url")
-    p_open.add_argument("--headed", action="store_true")
-
-    sub.add_parser("close")
-
-    p_snap = sub.add_parser("snapshot")
-    p_snap.add_argument("--compact", action="store_true")
-    p_snap.add_argument("--selector")
-
-    p_click = sub.add_parser("click")
-    p_click.add_argument("ref")
-    p_click.add_argument("--double", action="store_true")
-
-    p_type = sub.add_parser("type")
-    p_type.add_argument("ref")
-    p_type.add_argument("text")
-    p_type.add_argument("--clear", action="store_true")
-
-    p_fill = sub.add_parser("fill")
-    p_fill.add_argument("ref")
-    p_fill.add_argument("value")
-
-    p_scroll = sub.add_parser("scroll")
-    p_scroll.add_argument("direction", choices=["up", "down"])
-    p_scroll.add_argument("--amount", type=int, default=300)
-
-    p_ss = sub.add_parser("screenshot")
-    p_ss.add_argument("--output")
-
-    p_eval = sub.add_parser("eval")
-    p_eval.add_argument("expression")
-
-    sub.add_parser("ping")
-
-    p_daemon = sub.add_parser("_daemon")
-    p_daemon.add_argument("--socket", required=True)
-    p_daemon.add_argument("--headed", action="store_true")
-    p_daemon.add_argument("--user-data-dir")
-    p_daemon.add_argument("--session", default="default")
-    p_daemon.add_argument("--session-dir")
-
-    args = parser.parse_args()
-
-    if args.command == "_daemon":
-        from auto_browser.daemon import run_daemon
-        run_daemon(
-            socket_path=args.socket,
-            headed=args.headed,
-            user_data_dir=args.user_data_dir,
-            session_name=args.session,
-        )
-    elif args.command == "open":
-        cmd_open(args)
-    elif args.command == "close":
-        cmd_close(args)
-    elif args.command in ("snapshot", "click", "type", "fill", "scroll", "screenshot", "eval", "ping"):
-        args.action = args.command
-        cmd_action(args)
-    else:
-        parser.print_help()
+    cli()
