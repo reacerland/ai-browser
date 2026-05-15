@@ -1,1 +1,3 @@
-print("auto-browser CLI (not yet implemented)")
+from auto_browser.cli import main
+
+main()
