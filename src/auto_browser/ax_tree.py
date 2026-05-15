@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from auto_browser.ref_map import RefMap, RoleNameTracker
+
 INVISIBLE_CHARS = frozenset("\ufeff\u200b\u200c\u200d\u2060\u00a0")
 
 INTERACTIVE_ROLES = frozenset({
@@ -167,3 +169,135 @@ def build_tree(raw_nodes: list[dict]) -> tuple[list[TreeNode], list[int]]:
         calc_depth(ri, 0)
 
     return nodes, root_indices
+
+
+def assign_refs(nodes: list[TreeNode], ref_map: RefMap) -> None:
+    ref_map.clear()
+    next_ref = ref_map.next_ref_num()
+    tracker = RoleNameTracker()
+
+    for idx, node in enumerate(nodes):
+        should_ref = False
+        if node.role in INTERACTIVE_ROLES:
+            should_ref = True
+        elif node.role in CONTENT_ROLES and node.name:
+            should_ref = True
+
+        if should_ref:
+            nth_raw = tracker.track(node.role, node.name, idx)
+            ref_id = f"e{next_ref}"
+            next_ref += 1
+            nth = tracker.get_actual_nth(node.role, node.name, nth_raw)
+            ref_map.add(ref_id, node.backend_node_id, node.role, node.name, nth, None)
+            node.has_ref = True
+            node.ref_id = ref_id
+
+    ref_map.set_next_ref_num(next_ref)
+
+
+def _should_skip_render(node: TreeNode, nodes: list[TreeNode]) -> bool:
+    if node.role == "generic" and not node.has_ref:
+        if len(node.children) <= 1:
+            return True
+    return False
+
+
+def _render_node(node: TreeNode, ref_map: RefMap) -> str:
+    parts = []
+    role = node.role
+    if node.name:
+        parts.append(f'{role} "{node.name}"')
+    else:
+        parts.append(role)
+
+    attrs: list[str] = []
+    if node.level is not None:
+        attrs.append(f"level={node.level}")
+    if node.checked is not None:
+        attrs.append(f"checked={node.checked}")
+    if node.expanded is not None:
+        attrs.append(f"expanded={'true' if node.expanded else 'false'}")
+    if node.selected:
+        attrs.append("selected")
+    if node.disabled:
+        attrs.append("disabled")
+    if node.required:
+        attrs.append("required")
+    if node.ref_id:
+        entry = ref_map.get(node.ref_id)
+        if entry and entry.nth is not None:
+            attrs.append(f"nth={entry.nth}")
+        attrs.append(f"ref={node.ref_id}")
+
+    if attrs:
+        parts.append("[" + ", ".join(attrs) + "]")
+
+    line = " ".join(parts)
+    if node.value_text:
+        line += f": {node.value_text}"
+    return line
+
+
+def render_tree(nodes: list[TreeNode], root_indices: list[int], ref_map: RefMap) -> str:
+    lines: list[str] = []
+
+    def _render(idx: int, depth: int) -> None:
+        node = nodes[idx]
+        if _should_skip_render(node, nodes):
+            for cidx in node.children:
+                _render(cidx, depth)
+            return
+        if node.role in ("RootWebArea", "WebArea"):
+            for cidx in node.children:
+                _render(cidx, depth)
+            return
+
+        indent = "  " * depth
+        lines.append(f"{indent}- {_render_node(node, ref_map)}")
+        for cidx in node.children:
+            _render(cidx, depth + 1)
+
+    for ri in root_indices:
+        _render(ri, 0)
+
+    return "\n".join(lines)
+
+
+def compact_tree(output: str) -> str:
+    lines = output.splitlines()
+    result_indices: set[int] = set()
+
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        if "- " in stripped:
+            content_part = stripped.split("- ", 1)[1]
+            if "ref=" in content_part or ": " in content_part:
+                result_indices.add(i)
+                current_indent = len(line) - len(line.lstrip())
+                for j in range(i - 1, -1, -1):
+                    jline = lines[j]
+                    j_indent = len(jline) - len(jline.lstrip())
+                    if j_indent < current_indent:
+                        result_indices.add(j)
+                        current_indent = j_indent
+
+    return "\n".join(lines[i] for i in sorted(result_indices))
+
+
+def take_snapshot(cdp, ref_map: RefMap, compact: bool = False, selector: str | None = None) -> str:
+    cdp.send("DOM.enable")
+    cdp.send("Accessibility.enable")
+
+    result = cdp.send("Accessibility.getFullAXTree")
+    raw_nodes = result.get("nodes", [])
+
+    nodes, root_indices = build_tree(raw_nodes)
+    ref_map.clear()
+    assign_refs(nodes, ref_map)
+
+    output = render_tree(nodes, root_indices, ref_map)
+
+    if compact:
+        output = compact_tree(output)
+
+    return output

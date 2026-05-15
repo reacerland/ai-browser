@@ -3,6 +3,10 @@ from pathlib import Path
 
 import pytest
 from auto_browser.ax_tree import build_tree, TreeNode
+from auto_browser.ref_map import RefMap, RoleNameTracker
+from auto_browser.ax_tree import (
+    assign_refs, render_tree, compact_tree, take_snapshot,
+)
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "ax_tree_response.json"
@@ -66,3 +70,73 @@ class TestBuildTree:
         nodes, root_indices = build_tree(raw_nodes)
         root = nodes[root_indices[0]]
         assert root.depth == 0
+
+
+class TestAssignRefs:
+    def test_interactive_roles_get_refs(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        button = next(n for n in nodes if n.role == "button")
+        assert button.has_ref
+        assert button.ref_id is not None
+        assert ref_map.get(button.ref_id) is not None
+
+    def test_content_roles_with_name_get_refs(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        heading = next(n for n in nodes if n.role == "heading")
+        assert heading.has_ref
+
+    def test_structural_roles_no_ref(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        for n in nodes:
+            if n.role == "generic":
+                assert not n.has_ref
+
+    def test_ref_map_entries_have_backend_node_id(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        for n in nodes:
+            if n.has_ref:
+                entry = ref_map.get(n.ref_id)
+                assert entry is not None
+                assert entry.backend_node_id is not None
+
+
+class TestRenderTree:
+    def test_renders_indented_tree(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        output = render_tree(nodes, root_indices, ref_map)
+        assert "link" in output
+        assert "button" in output
+        assert "Submit" in output
+
+    def test_renders_ref_ids(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        output = render_tree(nodes, root_indices, ref_map)
+        assert "ref=" in output
+
+    def test_compact_mode(self):
+        raw_nodes = load_fixture()
+        nodes, root_indices = build_tree(raw_nodes)
+        ref_map = RefMap()
+        assign_refs(nodes, ref_map)
+        full = render_tree(nodes, root_indices, ref_map)
+        compacted = compact_tree(full)
+        assert len(compacted.splitlines()) <= len(full.splitlines())
+        assert "ref=" in compacted
