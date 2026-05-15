@@ -10,15 +10,6 @@ class TestBrowserManagerDefault:
         assert bm.is_alive()
         bm.close()
 
-    def test_get_cdp_session(self):
-        bm = BrowserManager(session_name="default", headed=True, user_data_dir=None)
-        bm.start()
-        cdp = bm.get_cdp_session()
-        assert cdp is not None
-        result = cdp.send("Runtime.evaluate", {"expression": "1 + 1"})
-        assert result["result"]["value"] == 2
-        bm.close()
-
     def test_navigate(self):
         bm = BrowserManager(session_name="default", headed=True, user_data_dir=None)
         bm.start()

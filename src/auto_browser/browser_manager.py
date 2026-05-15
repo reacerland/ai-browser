@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from playwright.sync_api import Browser, BrowserContext, CDPSession, Page
+from playwright.sync_api import Browser, BrowserContext, Page
 
 
 class BrowserManager:
-    """Wraps cloakbrowser launch functions and manages the active page + CDP session."""
+    """Wraps cloakbrowser launch functions and manages the active page."""
 
     def __init__(
         self,
@@ -48,10 +48,6 @@ class BrowserManager:
     def page(self) -> Page:
         assert self._page is not None, "Browser not started"
         return self._page
-
-    def get_cdp_session(self) -> CDPSession:
-        assert self._context is not None, "Browser not started"
-        return self._context.new_cdp_session(self._page)
 
     def is_alive(self) -> bool:
         return self._page is not None and self._context is not None

@@ -1,3 +1,4 @@
+# src/auto_browser/daemon.py
 from __future__ import annotations
 
 import json
@@ -67,6 +68,8 @@ class Daemon:
             finally:
                 conn.close()
         server.close()
+        if os.path.exists(self.socket_path):
+            os.unlink(self.socket_path)
 
     def _handle_request(self, request: dict) -> dict:
         req_id = request.get("id")
@@ -104,8 +107,7 @@ class Daemon:
         return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
     def _get_interactions(self) -> Interactions:
-        cdp = self.bm.get_cdp_session()
-        return Interactions(cdp, self.ref_map, self.bm.page)
+        return Interactions(self.bm.page, self.ref_map)
 
     def _shutdown(self) -> dict:
         self._running = False
@@ -120,10 +122,8 @@ class Daemon:
         return {"status": "ok", "url": url, "title": self.bm.page.title()}
 
     def _snapshot(self, params: dict) -> dict:
-        cdp = self.bm.get_cdp_session()
         compact = params.get("compact", False)
-        selector = params.get("selector")
-        content = take_snapshot(cdp, self.ref_map, compact=compact, selector=selector)
+        content = take_snapshot(self.bm.page, self.ref_map, compact=compact)
         return {"status": "ok", "content": content}
 
     def _interact(self, action: str, params: dict) -> dict:
