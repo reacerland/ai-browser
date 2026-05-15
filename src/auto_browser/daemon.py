@@ -110,6 +110,40 @@ class Daemon:
                 result = self._screenshot(params)
             elif method == "eval":
                 result = self._eval(params)
+            elif method == "get":
+                result = self._get(params)
+            elif method == "is":
+                result = self._is_check(params)
+            elif method == "wait":
+                result = self._wait(params)
+            elif method == "find":
+                result = self._find(params)
+            elif method == "back":
+                result = self._get_interactions().go_back()
+            elif method == "forward":
+                result = self._get_interactions().go_forward()
+            elif method == "reload":
+                result = self._get_interactions().reload()
+            elif method == "press":
+                result = self._get_interactions().press(params.get("key", ""))
+            elif method == "select":
+                result = self._select(params)
+            elif method == "check":
+                result = self._interact("check", params)
+            elif method == "uncheck":
+                result = self._interact("uncheck", params)
+            elif method == "dblclick":
+                result = self._interact("dblclick", params)
+            elif method == "drag":
+                result = self._drag(params)
+            elif method == "scroll_into_view":
+                result = self._interact("scroll_into_view", params)
+            elif method == "count":
+                result = self._get_interactions().count(params.get("selector", ""))
+            elif method == "upload":
+                result = self._upload(params)
+            elif method == "download":
+                result = self._download(params)
             else:
                 raise JsonRpcError(-32601, f"Method not found: {method}")
         except JsonRpcError as e:
@@ -157,6 +191,14 @@ class Daemon:
             direction = params.get("direction", "down")
             amount = params.get("amount", 300)
             return ia.scroll(direction, amount)
+        elif action == "check":
+            return ia.check(ref)
+        elif action == "uncheck":
+            return ia.uncheck(ref)
+        elif action == "dblclick":
+            return ia.dblclick(ref)
+        elif action == "scroll_into_view":
+            return ia.scroll_into_view(ref)
         raise JsonRpcError(-32601, f"Unknown action: {action}")
 
     def _screenshot(self, params: dict) -> dict:
@@ -168,6 +210,91 @@ class Daemon:
         expression = params.get("expression", "")
         ia = self._get_interactions()
         return ia.eval_js(expression)
+
+    def _get(self, params: dict) -> dict:
+        what = params.get("what", "")
+        ia = self._get_interactions()
+        if what == "title":
+            return {"status": "ok", "value": self.bm.page.title}
+        elif what == "url":
+            return {"status": "ok", "value": self.bm.page.url}
+        ref = params.get("ref", "")
+        if not ref:
+            raise JsonRpcError(-32003, "Missing ref parameter")
+        if what == "text":
+            return ia.get_text(ref)
+        elif what == "html":
+            return ia.get_html(ref)
+        elif what == "value":
+            return ia.get_value(ref)
+        elif what == "attr":
+            name = params.get("name", "")
+            if not name:
+                raise JsonRpcError(-32003, "Missing attr name")
+            return ia.get_attr(ref, name)
+        elif what == "box":
+            return ia.get_box(ref)
+        raise JsonRpcError(-32003, f"Unknown get type: {what}")
+
+    def _is_check(self, params: dict) -> dict:
+        what = params.get("what", "")
+        ref = params.get("ref", "")
+        if not ref:
+            raise JsonRpcError(-32003, "Missing ref parameter")
+        ia = self._get_interactions()
+        if what == "visible":
+            return ia.is_visible(ref)
+        elif what == "enabled":
+            return ia.is_enabled(ref)
+        elif what == "checked":
+            return ia.is_checked(ref)
+        raise JsonRpcError(-32003, f"Unknown is type: {what}")
+
+    def _wait(self, params: dict) -> dict:
+        target = params.get("target", "")
+        ia = self._get_interactions()
+        if target.startswith("e") and target[1:].isdigit():
+            return ia.wait_for_ref(target, timeout=params.get("timeout", 25000))
+        elif target.isdigit():
+            return ia.wait_for_timeout(int(target))
+        raise JsonRpcError(-32003, f"Invalid wait target: {target}")
+
+    def _find(self, params: dict) -> dict:
+        locator_type = params.get("locator", "")
+        value = params.get("value", "")
+        name = params.get("name")
+        ia = self._get_interactions()
+        return ia.find(locator_type, value, name)
+
+    def _select(self, params: dict) -> dict:
+        ref = params.get("ref", "")
+        value = params.get("value", "")
+        if not ref:
+            raise JsonRpcError(-32003, "Missing ref parameter")
+        return self._get_interactions().select_option(ref, value)
+
+    def _drag(self, params: dict) -> dict:
+        src = params.get("src", "")
+        dst = params.get("dst", "")
+        if not src or not dst:
+            raise JsonRpcError(-32003, "Missing src or dst ref")
+        return self._get_interactions().drag(src, dst)
+
+    def _upload(self, params: dict) -> dict:
+        ref = params.get("ref", "")
+        files = params.get("files", [])
+        if not ref:
+            raise JsonRpcError(-32003, "Missing ref parameter")
+        return self._get_interactions().upload(ref, files)
+
+    def _download(self, params: dict) -> dict:
+        ref = params.get("ref", "")
+        path = params.get("path", "")
+        if not ref:
+            raise JsonRpcError(-32003, "Missing ref parameter")
+        if not path:
+            raise JsonRpcError(-32003, "Missing path parameter")
+        return self._get_interactions().download(ref, path)
 
 
 def run_daemon(socket_path: str, headed: bool, user_data_dir: str | None, session_name: str, humanize: bool = False, human_preset: str = "default") -> None:
