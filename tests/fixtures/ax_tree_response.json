@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {"nodeId": "root", "role": {"type": "role", "value": "RootWebArea"}, "name": {"type": "plainText", "value": ""}, "childIds": ["nav", "main"], "backendDOMNodeId": 1, "ignored": true},
+    {"nodeId": "nav", "role": {"type": "role", "value": "navigation"}, "name": {"type": "plainText", "value": ""}, "childIds": ["link1", "link2"], "backendDOMNodeId": 2, "ignored": false},
+    {"nodeId": "link1", "role": {"type": "role", "value": "link"}, "name": {"type": "plainText", "value": "Home"}, "childIds": ["st1", "st2"], "backendDOMNodeId": 3, "ignored": false, "properties": []},
+    {"nodeId": "st1", "role": {"type": "role", "value": "StaticText"}, "name": {"type": "plainText", "value": "Go to "}, "childIds": [], "backendDOMNodeId": 4, "ignored": false},
+    {"nodeId": "st2", "role": {"type": "role", "value": "StaticText"}, "name": {"type": "plainText", "value": "our homepage"}, "childIds": [], "backendDOMNodeId": 5, "ignored": false},
+    {"nodeId": "link2", "role": {"type": "role", "value": "link"}, "name": {"type": "plainText", "value": "About"}, "childIds": ["st3"], "backendDOMNodeId": 6, "ignored": false},
+    {"nodeId": "st3", "role": {"type": "role", "value": "StaticText"}, "name": {"type": "plainText", "value": "About"}, "childIds": [], "backendDOMNodeId": 7, "ignored": false},
+    {"nodeId": "main", "role": {"type": "role", "value": "main"}, "name": {"type": "plainText", "value": ""}, "childIds": ["h1", "div-wrap"], "backendDOMNodeId": 8, "ignored": false},
+    {"nodeId": "h1", "role": {"type": "role", "value": "heading"}, "name": {"type": "plainText", "value": "Title"}, "childIds": ["st4"], "backendDOMNodeId": 9, "ignored": false, "properties": [{"name": "level", "value": {"type": "integer", "value": 1}}]},
+    {"nodeId": "st4", "role": {"type": "role", "value": "StaticText"}, "name": {"type": "plainText", "value": "Title"}, "childIds": [], "backendDOMNodeId": 10, "ignored": false},
+    {"nodeId": "div-wrap", "role": {"type": "role", "value": "generic"}, "name": {"type": "plainText", "value": ""}, "childIds": ["div-inner"], "backendDOMNodeId": 11, "ignored": false},
+    {"nodeId": "div-inner", "role": {"type": "role", "value": "generic"}, "name": {"type": "plainText", "value": ""}, "childIds": ["btn1"], "backendDOMNodeId": 12, "ignored": false},
+    {"nodeId": "btn1", "role": {"type": "role", "value": "button"}, "name": {"type": "plainText", "value": "Submit"}, "childIds": ["st5"], "backendDOMNodeId": 13, "ignored": false},
+    {"nodeId": "st5", "role": {"type": "role", "value": "StaticText"}, "name": {"type": "plainText", "value": "Submit"}, "childIds": [], "backendDOMNodeId": 14, "ignored": false},
+    {"nodeId": "itb", "role": {"type": "role", "value": "InlineTextBox"}, "name": {"type": "plainText", "value": "hidden"}, "childIds": [], "backendDOMNodeId": 15, "ignored": false},
+    {"nodeId": "st-empty", "role": {"type": "role", "value": "StaticText"}, "name": {"type": "plainText", "value": "\u00a0"}, "childIds": [], "backendDOMNodeId": 16, "ignored": false}
+  ]
+}
