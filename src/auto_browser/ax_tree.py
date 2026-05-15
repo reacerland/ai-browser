@@ -95,10 +95,19 @@ def build_tree(raw_nodes: list[dict]) -> tuple[list[TreeNode], list[int]]:
         parsed[raw["nodeId"]] = len(nodes)
         nodes.append(node)
 
-    # Build parent-child using childIds
-    child_id_to_idx: dict[str, int] = {}
-    for node_id, idx in parsed.items():
-        child_id_to_idx[node_id] = idx
+    # Build lookup: nodeId -> raw node (for resolving skipped nodes)
+    raw_by_id: dict[str, dict] = {r["nodeId"]: r for r in raw_nodes}
+
+    # Build parent-child using childIds, bypassing skipped (ignored) nodes
+    def _resolve_children(raw_entry: dict) -> list[int]:
+        collected: list[int] = []
+        for cid in raw_entry.get("childIds", []):
+            if cid in parsed:
+                collected.append(parsed[cid])
+            elif cid in raw_by_id:
+                # Skipped node — adopt its children recursively
+                collected.extend(_resolve_children(raw_by_id[cid]))
+        return collected
 
     root_indices: list[int] = []
     for raw in raw_nodes:
@@ -106,14 +115,9 @@ def build_tree(raw_nodes: list[dict]) -> tuple[list[TreeNode], list[int]]:
         if node_id not in parsed:
             continue
         idx = parsed[node_id]
-        child_ids = raw.get("childIds", [])
-        valid_children: list[int] = []
-        for cid in child_ids:
-            if cid in parsed:
-                cidx = parsed[cid]
-                valid_children.append(cidx)
-                nodes[cidx].parent_idx = idx
-
+        valid_children = _resolve_children(raw)
+        for cidx in valid_children:
+            nodes[cidx].parent_idx = idx
         nodes[idx].children = valid_children
         if nodes[idx].parent_idx is None and nodes[idx].role == "RootWebArea":
             root_indices.append(idx)

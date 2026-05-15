@@ -95,6 +95,9 @@ def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
     session = ctx.obj["session"]
     user_data_dir = ctx.obj["session"] != "default"
 
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+
     session_dir, udd = _ensure_session_dir(session, user_data_dir)
     socket_path = f"/tmp/ab-{session}.sock"
 
@@ -257,7 +260,7 @@ def ping(ctx: click.Context) -> None:
     _output(result)
 
 
-@cli.command(hidden=True)
+@cli.command("_daemon", hidden=True)
 @click.option("--socket", required=True)
 @click.option("--headed", is_flag=True)
 @click.option("--user-data-dir")
