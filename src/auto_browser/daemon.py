@@ -19,16 +19,27 @@ class JsonRpcError(Exception):
 
 
 class Daemon:
-    def __init__(self, socket_path: str, headed: bool, user_data_dir: str | None, session_name: str) -> None:
+    def __init__(self, socket_path: str, headed: bool, user_data_dir: str | None, session_name: str, humanize: bool = False, human_preset: str = "default") -> None:
         self.socket_path = socket_path
         self.bm = BrowserManager(session_name=session_name, headed=headed, user_data_dir=user_data_dir)
         self.ref_map = RefMap()
         self._running = False
+        self._humanize = humanize
+        self._human_preset = human_preset
 
     def start(self) -> None:
         self.bm.start()
+        self._apply_humanize()
         self._running = True
         self._serve()
+
+    def _apply_humanize(self) -> None:
+        if not self._humanize:
+            return
+        from cloakbrowser.human import resolve_config, patch_page, _CursorState
+        config = resolve_config(preset=self._human_preset)
+        cursor = _CursorState()
+        patch_page(self.bm.page, config, cursor)
 
     def _serve(self) -> None:
         if os.path.exists(self.socket_path):
@@ -159,6 +170,6 @@ class Daemon:
         return ia.eval_js(expression)
 
 
-def run_daemon(socket_path: str, headed: bool, user_data_dir: str | None, session_name: str) -> None:
-    daemon = Daemon(socket_path, headed, user_data_dir, session_name)
+def run_daemon(socket_path: str, headed: bool, user_data_dir: str | None, session_name: str, humanize: bool = False, human_preset: str = "default") -> None:
+    daemon = Daemon(socket_path, headed, user_data_dir, session_name, humanize, human_preset)
     daemon.start()

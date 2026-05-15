@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -36,8 +37,18 @@ def _is_daemon_running(session: str) -> bool:
         return False
     try:
         os.kill(info["pid"], 0)
-        return True
     except (ProcessLookupError, KeyError):
+        return False
+    sock_path = info.get("socket", "")
+    if not sock_path or not os.path.exists(sock_path):
+        return False
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(1.0)
+        s.connect(sock_path)
+        s.close()
+        return True
+    except (ConnectionRefusedError, FileNotFoundError, OSError):
         return False
 
 
@@ -89,8 +100,10 @@ def cli(ctx: click.Context, session: str) -> None:
 @cli.command("open")
 @click.argument("url")
 @click.option("--headed", is_flag=True, help="Run browser in headed mode.")
+@click.option("--humanize", is_flag=True, help="Enable human-like interactions.")
+@click.option("--human-preset", type=click.Choice(["default", "careful"]), default="default", help="Humanize preset (default: default).")
 @click.pass_context
-def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
+def open_cmd(ctx: click.Context, url: str, headed: bool, humanize: bool, human_preset: str) -> None:
     """Open a URL. Starts daemon if not running."""
     session = ctx.obj["session"]
     user_data_dir = ctx.obj["session"] != "default"
@@ -103,10 +116,25 @@ def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
 
     if _is_daemon_running(session):
         info = _read_daemon_info(session)
-        client = Client(info["socket"])
-        result = client.call("goto", {"url": url})
-        _output(result)
-        return
+        if headed and not info.get("headed", False):
+            click.echo(
+                "Warning: daemon already running in headless mode. "
+                f"Close first to switch: ab --session {session} close",
+                err=True,
+            )
+        try:
+            client = Client(info["socket"])
+            result = client.call("goto", {"url": url})
+            _output(result)
+            return
+        except (ConnectionRefusedError, FileNotFoundError, OSError):
+            # Stale daemon info — clean up and start fresh
+            info_path = _daemon_info_path(session)
+            if info_path.exists():
+                info_path.unlink()
+            stale_sock = info.get("socket", "")
+            if stale_sock and os.path.exists(stale_sock):
+                os.unlink(stale_sock)
 
     proc = subprocess.Popen(
         [sys.executable, "-m", "auto_browser", "_daemon",
@@ -114,6 +142,8 @@ def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
          "--session", session,
          "--session-dir", session_dir,
          *(["--headed"] if headed else []),
+         *(["--humanize"] if humanize else []),
+         *(["--human-preset", human_preset] if humanize else []),
          *(["--user-data-dir", udd] if udd else []),
         ],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -125,6 +155,8 @@ def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
         "socket": socket_path,
         "session": session,
         "headed": headed,
+        "humanize": humanize,
+        "human_preset": human_preset,
         "user_data_dir": udd,
     }
     with open(_daemon_info_path(session), "w") as f:
@@ -144,12 +176,22 @@ def open_cmd(ctx: click.Context, url: str, headed: bool) -> None:
 def close(ctx: click.Context) -> None:
     """Close the browser and stop the daemon."""
     session = ctx.obj["session"]
-    if not _is_daemon_running(session):
+    info = _read_daemon_info(session)
+    if not info:
         _output({"status": "ok", "message": "Daemon not running"})
         return
-    info = _read_daemon_info(session)
-    client = Client(info["socket"])
-    result = client.call("shutdown")
+    try:
+        client = Client(info["socket"])
+        result = client.call("shutdown")
+    except (ConnectionRefusedError, FileNotFoundError, OSError):
+        result = {"status": "ok", "message": "Daemon not running"}
+    # Clean up stale state
+    info_path = _daemon_info_path(session)
+    if info_path.exists():
+        info_path.unlink()
+    socket_path = info.get("socket", "")
+    if socket_path and os.path.exists(socket_path):
+        os.unlink(socket_path)
     _output(result)
 
 
@@ -263,10 +305,12 @@ def ping(ctx: click.Context) -> None:
 @cli.command("_daemon", hidden=True)
 @click.option("--socket", required=True)
 @click.option("--headed", is_flag=True)
+@click.option("--humanize", is_flag=True)
+@click.option("--human-preset", type=click.Choice(["default", "careful"]), default="default")
 @click.option("--user-data-dir")
 @click.option("--session", default="default")
 @click.option("--session-dir")
-def _daemon(socket: str, headed: bool, user_data_dir: str | None, session: str, session_dir: str | None) -> None:
+def _daemon(socket: str, headed: bool, humanize: bool, human_preset: str, user_data_dir: str | None, session: str, session_dir: str | None) -> None:
     """Internal: run the daemon process."""
     from auto_browser.daemon import run_daemon
     run_daemon(
@@ -274,6 +318,8 @@ def _daemon(socket: str, headed: bool, user_data_dir: str | None, session: str, 
         headed=headed,
         user_data_dir=user_data_dir,
         session_name=session,
+        humanize=humanize,
+        human_preset=human_preset,
     )
 
 
