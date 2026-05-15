@@ -1,69 +1,59 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import re
+from dataclasses import dataclass
 
 
 @dataclass
 class RefEntry:
-    backend_node_id: int
     role: str
     name: str
-    nth: int | None = None
-    frame_id: str | None = None
+    nth: int
 
 
 class RefMap:
     def __init__(self) -> None:
         self._entries: dict[str, RefEntry] = {}
-        self._next_ref: int = 1
 
-    def add(
-        self,
-        ref_id: str,
-        backend_node_id: int,
-        role: str,
-        name: str,
-        nth: int | None,
-        frame_id: str | None,
-    ) -> None:
-        self._entries[ref_id] = RefEntry(
-            backend_node_id=backend_node_id,
-            role=role,
-            name=name,
-            nth=nth,
-            frame_id=frame_id,
-        )
+    def add(self, ref_id: str, role: str, name: str, nth: int) -> None:
+        self._entries[ref_id] = RefEntry(role=role, name=name, nth=nth)
 
     def get(self, ref_id: str) -> RefEntry | None:
         return self._entries.get(ref_id)
 
     def clear(self) -> None:
         self._entries.clear()
-        self._next_ref = 1
-
-    def next_ref_num(self) -> int:
-        return self._next_ref
-
-    def set_next_ref_num(self, num: int) -> None:
-        self._next_ref = num
 
 
-class RoleNameTracker:
-    def __init__(self) -> None:
-        self._counts: dict[tuple[str, str], int] = {}
+# Matches lines like: - button "Submit" [ref=e1]
+# or: - textbox [ref=e5]
+# or: - link "foo/bar" [ref=e10]
+_LINE_RE = re.compile(
+    r'^\s*-\s+'           # list item prefix with indentation
+    r'(\w+)'              # role (group 1)
+    r'(?:\s+"([^"]*)")?'  # optional "name" (group 2)
+    r'.*?\[ref=(e\d+)\]'  # [ref=eN] (group 3)
+)
 
-    def track(self, role: str, name: str, node_idx: int) -> int:
+
+def parse_snapshot(yaml_text: str) -> RefMap:
+    ref_map = RefMap()
+    if not yaml_text:
+        return ref_map
+
+    # Track occurrences of (role, name) for nth calculation
+    counts: dict[tuple[str, str], int] = {}
+
+    for line in yaml_text.splitlines():
+        m = _LINE_RE.match(line)
+        if not m:
+            continue
+        role = m.group(1)
+        name = m.group(2) or ""
+        ref_id = m.group(3)
         key = (role, name)
-        nth = self._counts.get(key, 0)
-        self._counts[key] = nth + 1
-        return nth
+        nth = counts.get(key, 0)
+        counts[key] = nth + 1
+        ref_map.add(ref_id, role, name, nth)
 
-    def get_duplicates(self) -> dict[tuple[str, str], int]:
-        return {k: v for k, v in self._counts.items() if v > 1}
-
-    def get_actual_nth(self, role: str, name: str, occurrence: int | None = None) -> int | None:
-        key = (role, name)
-        count = self._counts.get(key, 0)
-        if count <= 1:
-            return None
-        return occurrence
+    return ref_map
