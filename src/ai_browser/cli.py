@@ -10,9 +10,9 @@ from pathlib import Path
 
 import click
 
-from auto_browser.client import Client
+from ai_browser.client import Client
 
-BASE_DIR = Path.home() / ".ab"
+BASE_DIR = Path.home() / ".ai-browser"
 
 
 def _session_dir(session: str) -> Path:
@@ -92,7 +92,7 @@ def _get_client(session: str) -> Client:
 @click.option("--session", "-s", default=None, help="Session name.")
 @click.pass_context
 def cli(ctx: click.Context, session: str | None) -> None:
-    """Auto-browser CLI — browser automation for AI agents."""
+    """AI Browser CLI — browser automation for AI agents."""
     ctx.ensure_object(dict)
     ctx.obj["session"] = session or "default"
     ctx.obj["explicit_session"] = session is not None
@@ -138,7 +138,7 @@ def open_cmd(ctx: click.Context, url: str, headed: bool, humanize: bool, human_p
                 os.unlink(stale_sock)
 
     proc = subprocess.Popen(
-        [sys.executable, "-m", "auto_browser", "_daemon",
+        [sys.executable, "-m", "ai_browser", "_daemon",
          "--socket", socket_path,
          "--session", session,
          "--session-dir", session_dir,
@@ -566,7 +566,7 @@ def ping(ctx: click.Context) -> None:
 @click.option("--session-dir")
 def _daemon(socket: str, headed: bool, humanize: bool, human_preset: str, user_data_dir: str | None, session: str, session_dir: str | None) -> None:
     """Internal: run the daemon process."""
-    from auto_browser.daemon import run_daemon
+    from ai_browser.daemon import run_daemon
     run_daemon(
         socket_path=socket,
         headed=headed,

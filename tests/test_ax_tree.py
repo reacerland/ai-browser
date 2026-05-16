@@ -3,8 +3,8 @@ import urllib.parse
 import pytest
 from playwright.sync_api import Page
 
-from auto_browser.ref_map import RefMap
-from auto_browser.ax_tree import take_snapshot, parse_snapshot_yaml
+from ai_browser.ref_map import RefMap
+from ai_browser.ax_tree import take_snapshot, parse_snapshot_yaml
 
 
 HTML_SIMPLE = """<html><body>

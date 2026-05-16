@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page
 
-from auto_browser.ref_map import RefMap, parse_snapshot
+from ai_browser.ref_map import RefMap, parse_snapshot
 
 
 def take_snapshot(page: Page, ref_map: RefMap, compact: bool = False) -> str:

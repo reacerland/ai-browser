@@ -1,5 +1,5 @@
 [project]
-name = "auto-browser"
+name = "ai-browser"
 version = "0.1.0"
 description = "Client+daemon browser automation CLI for AI agents"
 readme = "README.md"
@@ -15,14 +15,15 @@ dev = [
 ]
 
 [project.scripts]
-ab = "auto_browser.cli:main"
+ai-browser = "ai_browser.cli:main"
+aib = "ai_browser.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/auto_browser"]
+packages = ["src/ai_browser"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

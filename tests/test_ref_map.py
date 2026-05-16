@@ -1,5 +1,5 @@
 import pytest
-from auto_browser.ref_map import RefEntry, RefMap, parse_snapshot
+from ai_browser.ref_map import RefEntry, RefMap, parse_snapshot
 
 
 class TestRefEntry:

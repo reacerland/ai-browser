@@ -12,7 +12,7 @@ class TestDaemonClientIntegration:
         socket_path = str(tmp_path / "test.sock")
 
         proc = subprocess.Popen(
-            [sys.executable, "-m", "auto_browser", "_daemon", "--socket", socket_path, "--headed"],
+            [sys.executable, "-m", "ai_browser", "_daemon", "--socket", socket_path, "--headed"],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         for _ in range(50):
@@ -24,7 +24,7 @@ class TestDaemonClientIntegration:
             raise RuntimeError("Daemon did not start")
 
         try:
-            from auto_browser.client import Client
+            from ai_browser.client import Client
             client = Client(socket_path)
             result = client.call("ping")
             assert result["status"] == "ok"

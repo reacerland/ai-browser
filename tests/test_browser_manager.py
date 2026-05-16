@@ -1,5 +1,5 @@
 import pytest
-from auto_browser.browser_manager import BrowserManager
+from ai_browser.browser_manager import BrowserManager
 
 
 class TestBrowserManagerDefault:

@@ -20,7 +20,7 @@ def _free_port() -> int:
 
 def ab(*args: str, session: str = SESSION) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["auto-browser", "--session", session, *args],
+        ["ai-browser", "--session", session, *args],
         capture_output=True,
         text=True,
         timeout=30,

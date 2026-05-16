@@ -2,10 +2,10 @@ import urllib.parse
 
 import pytest
 
-from auto_browser.browser_manager import BrowserManager
-from auto_browser.interactions import Interactions
-from auto_browser.ref_map import RefMap
-from auto_browser.ax_tree import take_snapshot
+from ai_browser.browser_manager import BrowserManager
+from ai_browser.interactions import Interactions
+from ai_browser.ref_map import RefMap
+from ai_browser.ax_tree import take_snapshot
 
 RICH_HTML = """<html><body>
     <input id="search" type="text" placeholder="Search" value="initial">

@@ -1,4 +1,4 @@
-# src/auto_browser/daemon.py
+# src/ai_browser/daemon.py
 from __future__ import annotations
 
 import json
@@ -6,10 +6,10 @@ import os
 import socket
 from typing import Any
 
-from auto_browser.browser_manager import BrowserManager
-from auto_browser.ref_map import RefMap
-from auto_browser.ax_tree import take_snapshot
-from auto_browser.interactions import Interactions
+from ai_browser.browser_manager import BrowserManager
+from ai_browser.ref_map import RefMap
+from ai_browser.ax_tree import take_snapshot
+from ai_browser.interactions import Interactions
 
 
 class JsonRpcError(Exception):
