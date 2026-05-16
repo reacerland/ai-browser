@@ -147,3 +147,68 @@ class TestTakeSnapshotOptimized:
         ref_map_btn = RefMap()
         btn_output = take_snapshot(complex_page, ref_map_btn, selector="#btn1")
         assert len(btn_output) < len(all_output)
+
+
+# ---------------------------------------------------------------------------
+# Snapshot size reduction tests (realistic HTML)
+# ---------------------------------------------------------------------------
+
+COMPLEX_HTML = """<html><body>
+<div class="wrapper">
+  <div class="inner">
+    <div class="deep">
+      <nav>
+        <a href="/home">Home</a>
+        <a href="/about">About</a>
+      </nav>
+    </div>
+  </div>
+  <main>
+    <h1>Welcome</h1>
+    <p>Some paragraph text here.</p>
+    <form>
+      <input type="text" placeholder="Search">
+      <button type="submit">Go</button>
+    </form>
+  </main>
+</div>
+</body></html>"""
+
+
+@pytest.fixture
+def size_page(browser_page):
+    browser_page.goto("data:text/html," + urllib.parse.quote(COMPLEX_HTML))
+    return browser_page
+
+
+class TestSnapshotSizeReduction:
+    def test_default_smaller_than_raw(self, size_page):
+        """Filtered output length should be less than raw aria_snapshot length."""
+        ref_map = RefMap()
+        raw = size_page.locator("body").aria_snapshot(mode="ai")
+        rendered = take_snapshot(size_page, ref_map)
+        assert len(rendered) < len(raw)
+
+    def test_interactive_much_smaller(self, size_page):
+        """Interactive mode should produce fewer characters than full mode."""
+        ref_map_full = RefMap()
+        full = take_snapshot(size_page, ref_map_full, interactive=False)
+        ref_map_interactive = RefMap()
+        interactive = take_snapshot(size_page, ref_map_interactive, interactive=True)
+        assert len(interactive) < len(full)
+
+    def test_compact_plus_interactive_smallest(self, size_page):
+        """compact+interactive combined should be no larger than full output."""
+        ref_map_full = RefMap()
+        full = take_snapshot(size_page, ref_map_full, compact=False, interactive=False)
+        ref_map_both = RefMap()
+        both = take_snapshot(size_page, ref_map_both, compact=True, interactive=True)
+        assert len(both) <= len(full)
+
+    def test_depth_1_smaller_than_full(self, size_page):
+        """depth=1 should produce output no larger than full depth."""
+        ref_map_full = RefMap()
+        full = take_snapshot(size_page, ref_map_full)
+        ref_map_depth = RefMap()
+        depth = take_snapshot(size_page, ref_map_depth, depth=1)
+        assert len(depth) <= len(full)
