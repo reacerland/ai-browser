@@ -215,7 +215,7 @@ class Daemon:
         what = params.get("what", "")
         ia = self._get_interactions()
         if what == "title":
-            return {"status": "ok", "value": self.bm.page.title}
+            return {"status": "ok", "value": self.bm.page.title()}
         elif what == "url":
             return {"status": "ok", "value": self.bm.page.url}
         ref = params.get("ref", "")
