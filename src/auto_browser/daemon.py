@@ -105,7 +105,9 @@ class Daemon:
             elif method == "hover":
                 result = self._interact("hover", params)
             elif method == "scroll":
-                result = self._interact("scroll", params)
+                direction = params.get("direction", "down")
+                amount = params.get("amount", 300)
+                result = self._get_interactions().scroll(direction, amount)
             elif method == "screenshot":
                 result = self._screenshot(params)
             elif method == "eval":
