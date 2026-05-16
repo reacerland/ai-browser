@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>E2E Test Page</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #scroll-area { height: 3000px; }
+        #section2 { margin-top: 2000px; }
+        #drag-dst { width: 200px; height: 100px; border: 2px dashed #999; }
+        .action-btn { margin: 4px; }
+    </style>
+</head>
+<body>
+    <h1>E2E Test Page</h1>
+
+    <!-- Form elements -->
+    <input id="name-input" type="text" value="Alice" placeholder="Enter name">
+    <input id="email-input" type="text" placeholder="Enter email">
+    <button id="submit-btn" onclick="document.title='submitted'">Submit</button>
+    <button id="disabled-btn" disabled>Disabled</button>
+    <input id="agree-cb" type="checkbox">
+    <select id="color-select">
+        <option value="red">Red</option>
+        <option value="blue" selected>Blue</option>
+        <option value="green">Green</option>
+    </select>
+    <input id="file-input" type="file">
+
+    <!-- Navigation -->
+    <a id="nav-link" href="#section2">Go to Section 2</a>
+    <a id="download-link" href="download.txt" download="test.txt">Download File</a>
+
+    <!-- Content -->
+    <div id="info-box" aria-label="Information">Hello World</div>
+    <img id="logo-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=" alt="Logo">
+
+    <!-- Repeated buttons for count/find -->
+    <button class="action-btn">Action 1</button>
+    <button class="action-btn">Action 2</button>
+    <button class="action-btn">Action 3</button>
+
+    <!-- Drag and drop -->
+    <div id="drag-src" draggable="true">Drag me</div>
+    <div id="drag-dst">Drop here</div>
+
+    <!-- Hidden element -->
+    <div id="hidden-el" style="display:none">Hidden</div>
+
+    <!-- Scroll area -->
+    <div id="scroll-area">
+        <div id="section2">Section 2 Content</div>
+    </div>
+</body>
+</html>
