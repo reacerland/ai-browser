@@ -7,7 +7,7 @@
 ## 设计目标
 
 - **AI 智能体优先**：CLI 接口输出结构化 JSON，面向程序化调用而非人工交互
-- **无障碍树驱动**：通过无障碍树快照和 ref 标识定位页面元素，AI 智能体无需视觉解析即可理解并操作页面
+- **无障碍树驱动**：通过无障碍树快照和 ref 标识定位页面元素，AI 智能体无需视觉解析即可理解并操作页面。快照自动优化（generic 节点折叠、不可见文本移除、包装器剥离），减少 token 消耗
 - **会话隔离**：每个会话运行独立的守护进程，拥有独立的浏览器实例、Unix 套接字和可选的持久化用户数据目录
 - **默认隐身**：基于 cloakbrowser（Playwright 隐身 Chromium 启动器），规避机器人检测
 - **拟人交互**：可选的拟人化模式，支持可配置的预设方案，模拟自然的鼠标移动和输入模式
@@ -75,8 +75,11 @@ ai-browser open https://example.com --humanize --human-preset careful
 ```bash
 # 获取无障碍树快照以了解页面结构
 ai-browser snapshot
-ai-browser snapshot --compact              # 精简视图
-ai-browser snapshot --selector "nav a"     # 按 CSS 选择器过滤
+ai-browser snapshot --compact              # 精简视图（仅保留 ref 及其祖先）
+ai-browser snapshot --interactive          # 仅显示可交互元素（最大程度节省 token）
+ai-browser snapshot --depth 3              # 限制树深度
+ai-browser snapshot --selector "nav a"     # 按 CSS 选择器限定范围
+ai-browser snapshot --interactive --compact # 最小化输出
 
 # 按定位器查找元素
 ai-browser find role button --name "Submit"
@@ -156,7 +159,7 @@ ai-browser close --session alpha           # 关闭 alpha，保留 beta
 |------|------|
 | `open <url>` | 启动守护进程和浏览器，导航到 URL |
 | `close` | 关闭浏览器并停止守护进程 |
-| `snapshot` | 获取无障碍树快照 |
+| `snapshot` | 获取无障碍树快照（支持 `--compact`、`--interactive`、`--depth`、`--selector`） |
 | `find <locator> <value>` | 按 role/text/label 等查找元素 |
 | `click <ref>` | 点击元素 |
 | `type <ref> <text>` | 输入文本 |

@@ -7,7 +7,7 @@ Browser automation CLI designed for AI agents. Provides a client-daemon architec
 ## Design Goals
 
 - **AI-agent-first**: CLI interface with structured JSON output, designed for programmatic consumption rather than human interactive use
-- **Accessibility-driven**: Uses accessibility tree snapshots with ref-based element identification, enabling AI agents to understand and interact with pages without visual parsing
+- **Accessibility-driven**: Uses accessibility tree snapshots with ref-based element identification, enabling AI agents to understand and interact with pages without visual parsing. Snapshots are automatically optimized (generic node collapsing, invisible text removal, wrapper stripping) to reduce token consumption
 - **Session isolation**: Each session runs an independent daemon process with its own browser instance, Unix socket, and optional persistent user data directory
 - **Stealth by default**: Built on cloakbrowser (Playwright-based stealth Chromium launcher) to avoid bot detection
 - **Human-like interactions**: Optional humanization mode with configurable presets for natural mouse movement and typing patterns
@@ -75,8 +75,11 @@ ai-browser open https://example.com --humanize --human-preset careful
 ```bash
 # Get accessibility tree snapshot to understand page structure
 ai-browser snapshot
-ai-browser snapshot --compact              # Condensed view
-ai-browser snapshot --selector "nav a"     # Filter by CSS selector
+ai-browser snapshot --compact              # Condensed view (refs + ancestors only)
+ai-browser snapshot --interactive          # Only interactive elements (biggest token savings)
+ai-browser snapshot --depth 3              # Limit tree depth
+ai-browser snapshot --selector "nav a"     # Scope to CSS selector
+ai-browser snapshot --interactive --compact # Maximum compression
 
 # Find elements by locator
 ai-browser find role button --name "Submit"
@@ -156,7 +159,7 @@ ai-browser close --session alpha           # Close alpha, keep beta running
 |---------|-------------|
 | `open <url>` | Start daemon + browser, navigate to URL |
 | `close` | Close browser and stop daemon |
-| `snapshot` | Get accessibility tree snapshot |
+| `snapshot` | Get accessibility tree snapshot (supports `--compact`, `--interactive`, `--depth`, `--selector`) |
 | `find <locator> <value>` | Find elements by role/text/label/etc. |
 | `click <ref>` | Click an element |
 | `type <ref> <text>` | Type text into an element |
