@@ -79,3 +79,71 @@ class TestParseSnapshotYaml:
     def test_empty_input(self):
         rm = parse_snapshot_yaml("")
         assert rm.get("e1") is None
+
+
+# ---------------------------------------------------------------------------
+# New optimized snapshot tests (snapshot_tree pipeline)
+# ---------------------------------------------------------------------------
+
+HTML_COMPLEX = """<html><body>
+    <h1>Title</h1>
+    <div>
+        <p>Paragraph one</p>
+        <p>Paragraph two</p>
+        <button id="btn1">Button A</button>
+        <a href="#x">Link A</a>
+        <input id="inp" type="text" placeholder="Type here">
+    </div>
+    <div>
+        <div>
+            <button id="btn2">Button B</button>
+        </div>
+    </div>
+</body></html>"""
+
+
+@pytest.fixture
+def complex_page(browser_page):
+    browser_page.goto("data:text/html," + urllib.parse.quote(HTML_COMPLEX))
+    return browser_page
+
+
+class TestTakeSnapshotOptimized:
+    def test_output_smaller_than_raw(self, complex_page):
+        """Filtered/rendered output should be no larger than the raw aria_snapshot."""
+        ref_map = RefMap()
+        raw = complex_page.locator("body").aria_snapshot(mode="ai")
+        rendered = take_snapshot(complex_page, ref_map)
+        assert len(rendered) <= len(raw)
+
+    def test_ref_map_still_populated(self, complex_page):
+        """ref_map should still receive all ref-bearing entries."""
+        ref_map = RefMap()
+        take_snapshot(complex_page, ref_map)
+        entries = list(ref_map._entries.values())
+        roles = {e.role for e in entries}
+        assert "button" in roles
+
+    def test_interactive_mode(self, complex_page):
+        """Interactive mode should produce fewer lines than the full render."""
+        ref_map_full = RefMap()
+        full = take_snapshot(complex_page, ref_map_full, interactive=False)
+        ref_map_interactive = RefMap()
+        interactive = take_snapshot(complex_page, ref_map_interactive, interactive=True)
+        assert interactive.count("\n") < full.count("\n")
+
+    def test_depth_limit(self, complex_page):
+        """Depth-limited snapshot should be smaller than full snapshot."""
+        ref_map_full = RefMap()
+        full = take_snapshot(complex_page, ref_map_full)
+        ref_map_depth = RefMap()
+        depth = take_snapshot(complex_page, ref_map_depth, depth=1)
+        assert len(depth) <= len(full)
+
+    def test_selector_scopes_snapshot(self, complex_page):
+        """Selector should scope the snapshot to a sub-element."""
+        ref_map_all = RefMap()
+        all_output = take_snapshot(complex_page, ref_map_all)
+        ref_map_btn = RefMap()
+        btn_output = take_snapshot(complex_page, ref_map_btn, selector="#btn1")
+        assert len(btn_output) < len(all_output)

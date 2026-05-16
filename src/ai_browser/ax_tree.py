@@ -3,37 +3,35 @@ from __future__ import annotations
 from playwright.sync_api import Page
 
 from ai_browser.ref_map import RefMap, parse_snapshot
+from ai_browser.snapshot_tree import compact_tree, parse_yaml_tree, render_tree
 
 
-def take_snapshot(page: Page, ref_map: RefMap, compact: bool = False) -> str:
-    snapshot = page.locator("body").aria_snapshot(mode="ai")
-    parsed = parse_snapshot(snapshot)
-    # Copy parsed entries into the provided ref_map
-    ref_map.clear()
-    for ref_id, entry in parsed._entries.items():
-        ref_map.add(ref_id, entry.role, entry.name, entry.nth)
+def take_snapshot(
+    page: Page,
+    ref_map: RefMap,
+    *,
+    compact: bool = False,
+    interactive: bool = False,
+    depth: int | None = None,
+    selector: str | None = None,
+) -> str:
+    """Take an accessibility snapshot of the page.
+
+    Parses the raw YAML through the snapshot_tree pipeline for filtering
+    and optional compacting, and populates *ref_map* with ref-bearing nodes.
+    """
+    locator = page.locator(selector) if selector else page.locator("body")
+    raw_yaml = locator.aria_snapshot(mode="ai")
+    roots = parse_yaml_tree(raw_yaml)
+
+    from ai_browser.ref_map import populate_ref_map_from_tree
+    populate_ref_map_from_tree(roots, ref_map)
+
+    rendered = render_tree(roots, interactive=interactive, depth=depth)
     if compact:
-        snapshot = _compact(snapshot)
-    return snapshot
+        rendered = compact_tree(rendered)
+    return rendered
 
 
-def _compact(yaml_text: str) -> str:
-    lines = yaml_text.splitlines()
-    result_indices: set[int] = set()
-
-    for i, line in enumerate(lines):
-        if "[ref=" in line:
-            result_indices.add(i)
-            current_indent = len(line) - len(line.lstrip())
-            for j in range(i - 1, -1, -1):
-                jline = lines[j]
-                j_indent = len(jline) - len(jline.lstrip())
-                if j_indent < current_indent:
-                    result_indices.add(j)
-                    current_indent = j_indent
-
-    return "\n".join(lines[i] for i in sorted(result_indices))
-
-
-# Public alias for testing
+# Public alias for backward compatibility with existing tests
 parse_snapshot_yaml = parse_snapshot

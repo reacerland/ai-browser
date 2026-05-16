@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ai_browser.snapshot_tree import TreeNode
 
 
 @dataclass
@@ -57,3 +61,25 @@ def parse_snapshot(yaml_text: str) -> RefMap:
         ref_map.add(ref_id, role, name, nth)
 
     return ref_map
+
+
+# ---------------------------------------------------------------------------
+# TreeNode-based population (used by the new snapshot_tree pipeline)
+# ---------------------------------------------------------------------------
+
+
+def _walk_tree(nodes: list[TreeNode], ref_map: RefMap, counts: dict[tuple[str, str], int]) -> None:
+    for node in nodes:
+        if node.ref:
+            key = (node.role, node.name)
+            nth = counts.get(key, 0)
+            counts[key] = nth + 1
+            ref_map.add(node.ref, node.role, node.name, nth)
+        _walk_tree(node.children, ref_map, counts)
+
+
+def populate_ref_map_from_tree(nodes: list[TreeNode], ref_map: RefMap) -> None:
+    """Walk a list of root TreeNodes and populate *ref_map* with all ref-bearing nodes."""
+    ref_map.clear()
+    counts: dict[tuple[str, str], int] = {}
+    _walk_tree(nodes, ref_map, counts)
