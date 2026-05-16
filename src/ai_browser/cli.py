@@ -232,15 +232,21 @@ def _cleanup_session_files(session: str, info: dict) -> None:
 
 @cli.command()
 @click.option("--compact", is_flag=True, help="Compact output mode.")
-@click.option("--selector", help="CSS selector to filter elements.")
+@click.option("--interactive", is_flag=True, help="Only show interactive elements.")
+@click.option("--depth", type=int, default=None, help="Max tree depth.")
+@click.option("--selector", help="CSS selector to scope the snapshot.")
 @click.pass_context
-def snapshot(ctx: click.Context, compact: bool, selector: str | None) -> None:
+def snapshot(ctx: click.Context, compact: bool, interactive: bool, depth: int | None, selector: str | None) -> None:
     """Get accessibility tree snapshot of the current page."""
     session = ctx.obj["session"]
     client = _get_client(session)
     params: dict = {}
     if compact:
         params["compact"] = True
+    if interactive:
+        params["interactive"] = True
+    if depth is not None:
+        params["depth"] = depth
     if selector:
         params["selector"] = selector
     result = client.call("snapshot", params)

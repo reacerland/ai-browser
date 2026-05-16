@@ -169,8 +169,13 @@ class Daemon:
         return {"status": "ok", "url": url, "title": self.bm.page.title()}
 
     def _snapshot(self, params: dict) -> dict:
-        compact = params.get("compact", False)
-        content = take_snapshot(self.bm.page, self.ref_map, compact=compact)
+        content = take_snapshot(
+            self.bm.page, self.ref_map,
+            compact=params.get("compact", False),
+            interactive=params.get("interactive", False),
+            depth=params.get("depth"),
+            selector=params.get("selector"),
+        )
         return {"status": "ok", "content": content}
 
     def _interact(self, action: str, params: dict) -> dict:
